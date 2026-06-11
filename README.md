@@ -2,7 +2,9 @@
 
 **English** | [中文](README.zh-CN.md)
 
-This is a **Claude Code skill**. Hand Claude Code a data file (CSV / Excel / JSON / TSV), say "analyze this", and it works like a data analyst who knows your industry: it first confirms the business context with you, then cleans and analyzes the data, and finally delivers a **single-file interactive HTML report** — not isolated charts and numbers, but a data story with insights and conclusions you can take straight into a meeting.
+This is an **Agent Skill** for data analysis — it runs across multiple AI coding tools instead of being tied to any single one. Hand it a data file (CSV / Excel / JSON / TSV), say "analyze this", and it works like a data analyst who knows your industry: it first confirms the business context with you, then cleans and analyzes the data, and finally delivers a **single-file interactive HTML report** — not isolated charts and numbers, but a data story with insights and conclusions you can take straight into a meeting.
+
+**Works in:** [Claude Code](https://claude.com/claude-code) (primary, fully tested) · [Codex CLI](https://developers.openai.com/codex/cli) (adapted) · and any AI coding tool that loads the same Agent Skill structure (`SKILL.md` + frontmatter + subdirectory resources). The five-phase workflow and statistical discipline are identical across tools — only the task-list and questioning mechanics adapt per tool.
 
 **See it first**: open [`skills/data-analysis-workspace/sample_report.html`](skills/data-analysis-workspace/sample_report.html) in your browser (internet access required — chart libraries load from CDN).
 
@@ -17,7 +19,7 @@ This is a **Claude Code skill**. Hand Claude Code a data file (CSV / Excel / JSO
 
 ## Installation
 
-Prerequisite: [Claude Code](https://claude.com/claude-code) installed. If you also use the [Codex CLI](https://developers.openai.com/codex/cli), the same command installs there too (only when `~/.codex/` exists).
+Prerequisite: at least one supported AI coding tool installed — [Claude Code](https://claude.com/claude-code) and/or the [Codex CLI](https://developers.openai.com/codex/cli). A single command installs into whichever ones it detects (Codex only when `~/.codex/` exists).
 
 ```bash
 # Run from the repo root; the skill is installed to ~/.claude/skills/data-analysis-skill,
@@ -35,7 +37,7 @@ To upgrade later, pull the latest code and run the same command again.
 
 ## How to use it
 
-1. **Provide data, state your need.** In a Claude Code session, point to your data file and say what you want:
+1. **Provide data, state your need.** In your AI coding tool (Claude Code, Codex, …), point to your data file and say what you want:
 
    ```
    Analyze this sales data for me: retail_orders.csv — I need a report
@@ -92,7 +94,7 @@ Chart libraries load from CDN, so opening the report requires internet access. T
 Just say so ("give me static charts" / "export to PDF") and it switches to a static-chart approach.
 
 **Do I need to set up Python or install packages myself?**
-Analysis runs locally in Claude Code using Python. If dependencies like pandas are missing, it tries to install them automatically, with fallbacks if installation fails — generally nothing for you to worry about.
+Analysis runs locally inside your AI coding tool using Python. If dependencies like pandas are missing, it tries to install them automatically, with fallbacks if installation fails — generally nothing for you to worry about.
 
 **It asks about my industry and goals — can I skip that?**
 The confirmation step before a full report is deliberate: data that looks like retail data doesn't mean you want a retail reading of it. Ten seconds of choices make the report fit much better. Quick single questions skip this step entirely.
