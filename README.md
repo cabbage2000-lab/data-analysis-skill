@@ -1,5 +1,9 @@
 # data-analysis-skill: Turn data files into analysis reports that tell a story
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-primary-D97757)](https://claude.com/claude-code)
+[![Codex](https://img.shields.io/badge/Codex-adapted-10A37F)](https://developers.openai.com/codex/cli)
+
 **English** | [中文](README.zh-CN.md)
 
 This is an **Agent Skill** for data analysis — it runs across multiple AI coding tools instead of being tied to any single one. Hand it a data file (CSV / Excel / JSON / TSV), say "analyze this", and it works like a data analyst who knows your industry: it first confirms the business context with you, then cleans and analyzes the data, and finally delivers a **single-file interactive HTML report** — not isolated charts and numbers, but a data story with insights and conclusions you can take straight into a meeting.
@@ -98,3 +102,7 @@ Analysis runs locally inside your AI coding tool using Python. If dependencies l
 
 **It asks about my industry and goals — can I skip that?**
 The confirmation step before a full report is deliberate: data that looks like retail data doesn't mean you want a retail reading of it. Ten seconds of choices make the report fit much better. Quick single questions skip this step entirely.
+
+## License
+
+Released under the [MIT License](LICENSE) © 2026 cabbage2000-lab.
