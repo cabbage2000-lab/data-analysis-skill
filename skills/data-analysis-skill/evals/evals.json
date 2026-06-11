@@ -1,0 +1,105 @@
+{
+  "skill_name": "data-analysis-skill",
+  "test_data_dir": "/Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data",
+  "evals": [
+    {
+      "id": 1,
+      "name": "retail-gate",
+      "maps_to": "需求§13-T1：阶段1门禁（行业确认+目标澄清）",
+      "prompt": "帮我分析一下这份数据：/Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/retail_orders.csv",
+      "expected_output": "识别为零售/电商行业并向用户确认行业与分析目标（选择题形式、合并为一轮提问），在用户确认前不产出完整分析报告",
+      "files": ["retail_orders.csv"],
+      "assertions": [
+        "在产出任何分析结论前，先向用户提出行业确认与分析目标的澄清问题",
+        "提问以选择题形式组织，且不超过 3 个问题",
+        "未在用户确认前生成完整分析报告或 HTML 文件"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "benchmark-fabrication",
+      "maps_to": "需求§13-T2：行业基准纪律（不杜撰外部基准）",
+      "prompt": "分析 /Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/retail_orders.csv，算一下各品类的退货率，再告诉我：我们的退货率和行业平均水平比是高还是低？",
+      "expected_output": "计算各品类内部退货率；不杜撰行业平均值，说明基准需用户提供或授权联网检索并标注来源",
+      "files": ["retail_orders.csv"],
+      "assertions": [
+        "正确计算并报告各品类的内部退货率",
+        "未给出任何具体的『行业平均退货率』数值（无来源数字）",
+        "明确说明行业基准需用户提供数据、或授权联网检索并标注来源"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "causal-language",
+      "maps_to": "需求§13-T3：统计纪律（相关≠因果，提示混杂）",
+      "prompt": "分析 /Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/ad_sales_monthly.csv 里广告投入和销售额的关系。是不是广告投入带动了销售增长？给我一个明确的结论。",
+      "expected_output": "报告相关性与强度，措辞谨慎；主动提示促销天数/季节性混杂；说明确立因果所需的方法与数据条件，不直接断言因果",
+      "files": ["ad_sales_monthly.csv"],
+      "assertions": [
+        "报告广告投入与销售额的相关性及强度（如相关系数）",
+        "结论未使用『带动/导致/驱动了销售增长』等因果断言话术",
+        "主动指出促销天数、季节性等混杂因素的存在",
+        "说明确立因果关系所需的方法或数据条件（如随机实验、DID）"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "small-sample",
+      "maps_to": "需求§13-T4：小样本降级（统计功效限制）",
+      "prompt": "/Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/ab_test_small.csv 是我们 A/B 测试的结果，帮我验证 B 版本是不是显著更好。老板今天就要结论，直接告诉我 B 是不是赢了。",
+      "expected_output": "指出每组仅 10 人、统计功效不足，不强行宣称显著；给出描述性对比与所需样本量建议",
+      "files": ["ab_test_small.csv"],
+      "assertions": [
+        "明确指出样本量（每组 10 人）不足以支撑可靠的显著性结论",
+        "未宣称 B 版本『显著更好/显著获胜』",
+        "给出描述性对比（A 组 30% vs B 组 50% 转化率）",
+        "提供后续行动建议（如所需样本量估算或延长实验）"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "unknown-industry",
+      "maps_to": "需求§13-T5：行业识别降级（低置信度给选项）",
+      "prompt": "分析一下 /Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/masked_data.csv",
+      "expected_output": "字段脱敏无法推断行业：向用户提供 3-4 个行业选项、或说明将按通用框架分析，不自行编造行业背景",
+      "files": ["masked_data.csv"],
+      "assertions": [
+        "未自行断言数据属于某个具体行业、未编造行业背景叙事",
+        "向用户提供行业选项供选择，或明确说明将按行业中性的通用框架分析"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "saas-full-report",
+      "maps_to": "需求§13-T6：直通全流程（信息齐备不打断，产出合格报告）",
+      "prompt": "这是我们 SaaS 产品过去 36 个月的经营数据：/Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/saas_metrics.csv。我是创始人，想看增长和留存的整体状况，重点关注最近半年的变化。按 SaaS 业务的惯例来分析，最后给我一份 HTML 报告。",
+      "expected_output": "信息已齐备，不再追加提问；完成分析并产出单文件 HTML 报告：六段式结构、结论先行、ECharts 经固定版本 CDN 引入、每图配解读、附数据处理说明；识别出近 6 个月增速放缓与流失抬头",
+      "files": ["saas_metrics.csv"],
+      "assertions": [
+        "未向用户追加多余的澄清提问，直接完成分析",
+        "产出单个 HTML 报告文件",
+        "HTML 中 ECharts 依赖通过带固定版本号的 CDN URL 引入（非 latest）",
+        "报告开篇包含 3-5 条核心发现（结论先行）",
+        "报告包含六段式结构：核心发现/背景目标/数据概况/深入分析/结论建议/数据处理说明附录",
+        "每张图表配有『说明了什么』的解读文字",
+        "分析识别出近 6 个月增速放缓与流失率上升的信号"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "finance-template-application",
+      "maps_to": "需求§13-T7：企业财务模版应用（KPI 口径、主题组织、缺字段不臆造）",
+      "prompt": "这是我们公司近两年各事业部的月度损益数据（含预算）：/Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/finance_pnl.csv。我是财务负责人，想看整体盈利状况和费用管控情况，重点关注预算执行偏差出在哪里。受众是管理层，最后给我一份 HTML 报告。",
+      "expected_output": "识别为企业财务场景并按 corporate-finance.md 模版分析：按财务口径计算毛利率、费用率、预算执行率/偏差率；深入分析按模版主题组织（利润结构与趋势、费用结构、预算偏差、事业部对比）；发现研发费用持续超预算、西部事业部毛利率下滑、Q4 收入冲高中至少两个信号；数据不含现金流/应收，报告说明而不臆造；单文件 HTML 六段式结论先行",
+      "files": ["finance_pnl.csv"],
+      "assertions": [
+        "按财务口径计算核心指标：毛利率、费用率、预算执行率或偏差率（口径在报告或回复中可见）",
+        "深入分析按企业财务主题组织：利润结构与趋势、费用结构、预算执行偏差、事业部对比中至少覆盖三类",
+        "发现并报告内嵌信号中的至少两个：研发费用持续超预算、西部事业部毛利率逐期下滑、Q4 收入达成率系统性偏高",
+        "未对数据中不存在的现金流、应收应付等内容编造分析或杜撰数值（缺失项应被说明）",
+        "产出单个 HTML 报告文件，六段式结构、开篇含 3-5 条核心发现（结论先行）",
+        "叙事使用企业财务语言（科目、达成率、偏差、管控），面向管理层结论导向"
+      ]
+    }
+  ]
+}

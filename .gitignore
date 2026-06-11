@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# PyCharm
+.idea/
+
+# Claude Code 会话状态（settings.json 如出现应纳入版本控制）
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+
+# Claude Code 项目指令（本地保留，不进版本控制）
+/CLAUDE.md
+
+# 内部文档（不进版本控制）
+docs/superpowers/
+requirements/
+
+# 开发工作区（不进版本控制）
+skills/data-analysis-workspace/
+
+# 本机同步脚本（不进版本控制）
+sync-to-user.sh
+.superpowers/

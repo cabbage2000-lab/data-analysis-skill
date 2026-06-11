@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!--
+  data-analysis-skill 报告模板
+  ============================
+  使用方式（Python 端）：
+    把正文 script 中 window.__REPORT_DATA__ 赋值行右侧的数据占位符（REPORT_DATA_JSON，两侧各两条下划线，
+    全模板仅该一处字面量）replace 为 json.dumps(report_data, ensure_ascii=False) 的结果。
+  输出为单文件 HTML，依赖经 CDN 引入（固定版本），需联网打开。
+
+  数据契约 report_data（所有叙事文本支持有限 Markdown：**加粗** 与换行）：
+  {
+    "meta":         {"title", "subtitle", "date", "industry_label", "audience", "lang"},
+    "key_findings": [{"headline", "detail", "type": "positive|negative|warning|neutral"}],   // 3-5 条
+    "background":   {"narrative", "objectives": ["..."]},
+    "data_overview":{"narrative", "stats": [{"label","value","note"}], "quality_summary"},
+    "sections":     [{"id","title","narrative",
+                      "charts":[{"id","title","question","option":{ECharts option，纯 JSON 无函数},
+                                 "insight","height"}],
+                      "tables":[{"title","columns":["..."],"rows":[["..."]]}]}],
+    "conclusions":  {"narrative","recommendations":[{"title","detail","priority":"高|中|低"}]},
+    "appendix":     {"processing_notes":["..."],"methods_notes":["..."]}
+  }
+  约束：option 必须是纯 JSON（formatter 等用 ECharts 字符串模板如 '{b}: {c}'，不可用函数）。
+  视觉：「红印·出版」编辑风（经济学人式：白纸面 + 顶部红条，经济学人红 #e3120b 承担版面强调
+        与负向语义、数据蓝 #006ba6 为第一系列色与正向语义，全无衬线、数字 tabular-nums），
+        并向 ECharts 注册 economist 主题统一兜底色板与字体；option 自带配置仍优先于主题，
+        option 不必指定 color（语义色除外）。
+-->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据分析报告</title>
+<!-- Tailwind Play CDN（固定版本，实测 2026-06）：仅作可选工具类，主视觉由下方自定义 CSS 独立承载 -->
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<!-- ECharts 5.4.3：主源 bootcdn（国内），失败回退 unpkg（实测 2026-06 均可达）-->
+<script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+<script>window.echarts || document.write('<script src="https://unpkg.com/echarts@5.4.3/dist/echarts.min.js"><\/script>')</script>
+<style>
+  /* ============ 「红印·出版」设计系统（经济学人风：白纸面、红顶条、红/蓝双强调） ============ */
+  :root {
+    --ink: #121212;          /* 墨黑：标题/重数字 */
+    --ink-2: #404040;        /* 正文 */
+    --muted: #6b6b6b;        /* 次要/轴标签/表头 */
+    --faint: #9a9a9a;        /* 弱化/图号/label */
+    --line: #e5e5e5;         /* 浅分隔线 */
+    --line-2: #c9c9c9;       /* 中分隔线（表头底线） */
+    --grid: #e3e3e3;         /* 图表横网格 */
+    --soft: #f7f7f5;         /* 浅灰底（质量说明/附录/hover） */
+    --accent: #e3120b;       /* 经济学人红：版面强调/负向语义 */
+    --blue: #006ba6;         /* 数据蓝：第一系列色/正向语义 */
+    --blue-soft: #f0f7fb;
+    --blue-line: #b3d4e4;
+    --amber: #b45309;        /* 警示琥珀（文字） */
+    --amber-line: #ecd1ae;
+    --amber-soft: #fdf6ec;
+    --red-line: #f3b8b5;
+    --red-soft: #fdf1f0;
+    --paper: #ffffff;
+    --paper-edge: #e8e6e1;
+
+    /* 纯系统字体栈：内网/离线打开也保证排版稳定 */
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth;
+         background: radial-gradient(120% 80% at 50% -10%, #f7f6f3 0%, #f2f1ed 55%, #edebe6 100%);
+         background-attachment: fixed; }
+  body { margin: 0; color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.78;
+         -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  a { color: var(--accent); text-decoration: none; }
+  h1, h2, h3 { line-height: 1.3; margin: 0; }
+  p { margin: 0; }
+
+  /* ---------- 布局：桌面上的纸张 + 旁置目录（自管响应式） ---------- */
+  .fallback-wrap { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
+  #toc-nav { display: none; }
+  @media (min-width: 1100px) {
+    .fallback-wrap { display: flex; gap: 44px; align-items: flex-start; }
+    #toc-nav { display: block; width: 192px; flex-shrink: 0; }
+    .report-main { flex: 1; min-width: 0; }
+  }
+  /* 纸张 */
+  .page { position: relative; background: var(--paper); border: 1px solid var(--paper-edge);
+          border-top: 6px solid var(--accent);
+          margin: 34px 0 56px; padding: 50px 58px 46px;
+          box-shadow: 0 1px 0 rgba(255,255,255,.7) inset,
+                      0 20px 50px -22px rgba(40,35,30,.25),
+                      0 2px 8px rgba(40,35,30,.06); }
+  .prose { max-width: 705px; }
+
+  /* ---------- 目录（桌面旁置便签） ---------- */
+  #toc-nav .toc-inner { position: sticky; top: 36px; padding-top: 102px; }
+  .toc-label { font-size: 10.5px; font-weight: 800; letter-spacing: .24em;
+               text-transform: uppercase; color: var(--accent); margin: 0 0 10px;
+               border-top: 3px solid var(--ink);
+               border-bottom: 1px solid var(--line-2); padding: 9px 0; }
+  #toc-list { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+  #toc-list a { display: flex; gap: 9px; align-items: baseline; padding: 6px 0 6px 11px;
+                color: var(--ink-2); font-weight: 700;
+                text-decoration: none; border-left: 3px solid transparent; margin-left: -12px;
+                transition: color .25s, border-color .25s; }
+  #toc-list a:hover { color: var(--ink); border-left-color: var(--line-2); }
+  #toc-list a.active { color: var(--accent); border-left-color: var(--accent); }
+  #toc-list .toc-no { font-size: 10.5px; font-weight: 700;
+                      color: var(--faint); min-width: 16px; font-feature-settings: "tnum" 1; }
+  #toc-list a.active .toc-no { color: var(--accent); }
+
+  /* ---------- 报头 ---------- */
+  .masthead { padding-bottom: 0; margin-bottom: 46px; }
+  .masthead-kicker { margin: 0 0 12px; font-size: 11px; font-weight: 700;
+                     letter-spacing: .24em; text-transform: uppercase; color: var(--accent); }
+  .masthead h1 { font-size: clamp(28px, 3.4vw, 36px); line-height: 1.22; font-weight: 850;
+                 letter-spacing: .01em; color: var(--ink); }
+  #r-subtitle { margin: 9px 0 0; max-width: 60ch; color: #5f5f5f; font-size: 13.5px; line-height: 1.66; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 6px 26px; list-style: none;
+              margin: 18px 0 0; padding: 10px 0;
+              border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--line); }
+  .meta-row li { display: inline-flex; align-items: baseline; gap: 7px; }
+  .c-label { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); }
+  .c-value { font-size: 12.5px; color: var(--ink); font-weight: 600; font-feature-settings: "tnum" 1; }
+
+  /* ---------- 章节头（红方块 + 红序号 + 黑标题，无右伸线） ---------- */
+  section { margin-bottom: 56px; }
+  .section-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 18px; }
+  .section-head::before { content: ""; width: 9px; height: 9px; background: var(--accent);
+                          flex-shrink: 0; align-self: center; }
+  .section-index { font-size: 13px; font-weight: 800; color: var(--accent);
+                   font-feature-settings: "tnum" 1; }
+  .section-title { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: .02em;
+                   color: var(--ink); white-space: nowrap; }
+
+  .narrative { color: var(--ink-2); }
+  .narrative strong, .prose strong { color: var(--accent); font-feature-settings: "tnum" 1; }
+
+  /* ---------- 核心发现：头版要闻（描边胶囊语义标签，编号统一红色） ---------- */
+  .finding { display: flex; gap: 14px; padding: 15px 2px; border-bottom: 1px solid var(--line); }
+  .finding:first-child { padding-top: 4px; }
+  .finding-no { font-size: 15px; line-height: 1.55; min-width: 28px; font-weight: 800;
+                color: var(--accent); font-feature-settings: "tnum" 1; }
+  .finding-body { flex: 1; }
+  .finding-head { font-size: 15px; font-weight: 700; line-height: 1.55; color: var(--ink); }
+  .finding-head strong { color: var(--accent); font-feature-settings: "tnum" 1; }
+  .finding-detail { font-size: 12.5px; color: var(--muted); margin-top: 5px; max-width: 56em; line-height: 1.65; }
+  .finding-tag { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; padding: 2px 10px;
+                 border-radius: 2px; align-self: flex-start; margin-top: 5px; white-space: nowrap; }
+  .t-positive { color: var(--blue);   border: 1px solid var(--blue-line);  background: var(--blue-soft); }
+  .t-negative { color: var(--accent); border: 1px solid var(--red-line);   background: var(--red-soft); }
+  .t-warning  { color: var(--amber);  border: 1px solid var(--amber-line); background: var(--amber-soft); }
+  .t-neutral  { color: var(--muted);  border: 1px solid var(--line-2);     background: var(--soft); }
+  /* JS 给编号也挂了语义类，覆盖规则确保编号统一红色、无边框无底色（级联顺序须在语义类之后） */
+  .finding-no.t-positive, .finding-no.t-negative, .finding-no.t-warning, .finding-no.t-neutral {
+    color: var(--accent); border: none; background: transparent; }
+  @media (max-width: 639px) {
+    .finding { gap: 13px; }
+    .finding-no { font-size: 14px; min-width: 24px; }
+    .finding-tag { display: none; }   /* 窄屏下语义已由编号颜色表达 */
+  }
+
+  /* ---------- 目标列表（正方块 bullet） ---------- */
+  .objectives { margin: 16px 0 0; padding: 0; list-style: none; max-width: 705px; }
+  .objectives li { position: relative; margin: 6px 0; padding-left: 17px; color: var(--ink-2); }
+  .objectives li::before { content: ""; position: absolute; left: 1px; top: .62em; width: 7px; height: 7px;
+                           background: var(--accent); }
+
+  /* ---------- 数据概况 ---------- */
+  #ov-stats { display: grid; grid-template-columns: repeat(2, 1fr); border-top: 2px solid var(--ink); margin: 22px 0; }
+  @media (min-width: 720px) { #ov-stats { grid-template-columns: repeat(4, 1fr); } }
+  .stat { padding: 14px 18px 12px 15px; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); }
+  .stat:nth-child(2n+1) { border-left: none; }
+  @media (min-width: 720px) { .stat:nth-child(2n+1) { border-left: 1px solid var(--line); } .stat:nth-child(4n+1) { border-left: none; } }
+  .stat-label { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); }
+  .stat-value { font-size: 27px; font-weight: 800; color: var(--ink); margin-top: 5px; line-height: 1.16;
+                letter-spacing: .01em; font-feature-settings: "tnum" 1; }
+  .stat-note { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .quality-note { margin: 0; padding: 11px 16px; border-left: 3px solid var(--accent); background: var(--soft);
+                  color: var(--ink-2); font-size: 12.5px; line-height: 1.7; border-radius: 0; max-width: 705px; }
+  .quality-note .q-label { color: var(--ink-2); font-weight: 700; margin-right: 8px; }
+  .quality-note strong { color: var(--ink-2); }
+
+  /* ---------- 图表（红块图题 + 无框图区） ---------- */
+  .figure { margin: 30px 0 38px; }
+  .figure-mark { width: 36px; height: 4px; background: var(--accent); margin-bottom: 8px; }
+  .figure-title { font-size: 14.5px; font-weight: 800; letter-spacing: .01em; color: var(--ink); }
+  .figure-sub { display: flex; justify-content: space-between; gap: 12px; margin-top: 4px;
+                font-size: 11.5px; color: var(--faint); }
+  .figure-no { white-space: nowrap; font-feature-settings: "tnum" 1; }
+  .chart-box { width: 100%; background: transparent; border: none; margin-top: 10px; }
+  .figure-insight { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line);
+                    font-size: 12.8px; color: var(--ink-2); line-height: 1.7; max-width: 705px; }
+  .insight-label { font-size: 10.5px; font-weight: 800; letter-spacing: .22em; color: var(--accent); margin-right: 9px; }
+  .figure-insight strong { color: var(--accent); font-feature-settings: "tnum" 1; }
+
+  /* ---------- 表格（红块表题 + 出版表线；类名避开 Tailwind 工具类 table-caption） ---------- */
+  .table-block { margin: 30px 0 38px; overflow-x: auto; }
+  .tbl-title { font-size: 14.5px; font-weight: 800; letter-spacing: .01em; color: var(--ink); }
+  .tbl-sub { display: flex; justify-content: flex-end; margin-top: 4px;
+             font-size: 11.5px; color: var(--faint); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 10px; }
+  thead th { text-align: left; font-weight: 600; font-size: 10.5px; letter-spacing: .14em;
+             text-transform: uppercase; color: var(--muted);
+             border-top: 2px solid var(--ink); border-bottom: 1px solid var(--line-2);
+             padding: 8px 14px 8px 2px; white-space: nowrap; }
+  tbody td { border-bottom: 1px solid var(--line); padding: 8px 14px 8px 2px; color: var(--ink-2); }
+  tbody tr:hover td { background: var(--soft); }
+  tbody td:first-child { color: var(--ink); font-weight: 600; }
+  th.num, td.num { text-align: right; font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
+
+  /* ---------- 结论与建议 ---------- */
+  #cc-recommendations { margin-top: 18px; }
+  .rec { display: flex; gap: 14px; padding: 15px 2px; border-top: 1px solid var(--line); align-items: flex-start; }
+  .rec:last-child { border-bottom: 1px solid var(--line); }
+  .rec-prio { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; padding: 3px 12px;
+              border-radius: 2px; flex-shrink: 0; margin-top: 2px; white-space: nowrap; }
+  .p-high { background: var(--accent); color: #fff; }
+  .p-mid  { border: 1px solid var(--amber-line); color: var(--amber); background: var(--amber-soft); }
+  .p-low  { border: 1px solid var(--line-2); color: var(--muted); }
+  .rec-title { font-size: 14.5px; font-weight: 700; color: var(--ink); }
+  .rec-no { font-weight: 800; color: var(--accent); margin-right: 6px; font-feature-settings: "tnum" 1; }
+  .rec-detail { font-size: 12.5px; color: var(--muted); margin-top: 4px; max-width: 56em; line-height: 1.65; }
+  .rec-detail strong, .rec-title strong { color: var(--accent); }
+
+  /* ---------- 附录（刊末说明） ---------- */
+  #sec-appendix details { background: var(--soft); border: 1px solid var(--paper-edge); border-radius: 0; padding: 16px 20px; }
+  #sec-appendix summary { cursor: pointer; font-size: 14.5px; font-weight: 800; letter-spacing: .03em;
+                          color: var(--ink); list-style: none; display: flex; align-items: center; gap: 11px; }
+  #sec-appendix summary::-webkit-details-marker { display: none; }
+  #sec-appendix summary::before { content: "+"; color: var(--accent); font-weight: 800;
+                                  font-size: 17px; line-height: 1; transition: transform .3s; }
+  #sec-appendix details[open] summary::before { transform: rotate(45deg); }
+  .ap-subhead { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--faint); margin: 20px 0 7px; }
+  .ap-list { margin: 0; padding-left: 20px; font-size: 12.8px; color: var(--ink-2); list-style: decimal; }
+  .ap-list li { padding: 2px 0; }
+  .colophon { text-align: center; font-size: 11.5px; color: var(--faint); letter-spacing: .06em;
+              border-top: 1px solid var(--line); padding: 14px 0 0; margin-top: 48px; }
+
+  /* ---------- 入场动效（仅屏幕、尊重无障碍偏好） ---------- */
+  @media screen and (prefers-reduced-motion: no-preference) {
+    .masthead > * { animation: rise .6s cubic-bezier(.2, .7, .2, 1) backwards; }
+    .masthead > *:nth-child(4) { animation-delay: .08s; }
+    .reveal { opacity: 0; transform: translateY(9px);
+              transition: opacity .6s cubic-bezier(.2,.7,.2,1), transform .6s cubic-bezier(.2,.7,.2,1); }
+    .reveal.on { opacity: 1; transform: translateY(0); }
+    @keyframes rise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+  }
+
+  /* ---------- 响应式（窄屏：纸张铺满） ---------- */
+  @media (max-width: 720px) {
+    .fallback-wrap { padding: 0; }
+    .page { margin: 0; padding: 28px 18px 30px; border: none; border-top: 6px solid var(--accent); box-shadow: none; }
+    .section-title { white-space: normal; }
+  }
+
+  /* ---------- 打印：A4、省墨、保留强调 ---------- */
+  @page { size: A4; margin: 12mm; }
+  @media print {
+    html { background: #ffffff; }
+    body { font-size: 12.5px; line-height: 1.6; }
+    #toc-nav { display: none; }
+    .page { margin: 0; padding: 14px 0 0; border: none; border-top: 6px solid var(--accent);
+            box-shadow: none; background: #ffffff; }
+    .masthead { padding-bottom: 12px; margin-bottom: 32px; }
+    .masthead > * { animation: none; }
+    .reveal { opacity: 1 !important; transform: none !important; transition: none; }
+    section { margin-bottom: 36px; }
+    .section-head { break-after: avoid; page-break-after: avoid; }
+    .figure, .table-block, .finding, .rec, .stat, .quality-note { break-inside: avoid; page-break-inside: avoid; }
+    p, li { orphans: 2; widows: 2; }
+    .finding-tag, .quality-note, .p-mid, #sec-appendix details,
+    .t-positive, .t-negative, .t-warning, .t-neutral { background: #ffffff; }
+    a { color: var(--ink); }
+  }
+</style>
+</head>
+<body>
+
+<div class="fallback-wrap">
+
+  <!-- 目录（桌面端旁置） -->
+  <nav id="toc-nav">
+    <div class="toc-inner">
+      <p class="toc-label">目录 · Contents</p>
+      <ul id="toc-list"></ul>
+    </div>
+  </nav>
+
+  <!-- 主体：桌面上的纸张 -->
+  <main class="report-main page">
+
+    <!-- 报头 -->
+    <header class="masthead">
+      <p class="masthead-kicker">数据分析报告 · Data Analysis Report</p>
+      <h1 id="r-title"></h1>
+      <p id="r-subtitle"></p>
+      <ul class="meta-row" aria-label="报告信息">
+        <li><span class="c-label">日期</span><span class="c-value" id="r-date"></span></li>
+        <li><span class="c-label">行业</span><span class="c-value" id="r-industry"></span></li>
+        <li><span class="c-label">面向</span><span class="c-value" id="r-audience"></span></li>
+      </ul>
+    </header>
+
+    <!-- 1 核心发现 -->
+    <section id="sec-findings" class="reveal">
+      <div class="section-head"><span class="section-index">01</span><h2 class="section-title">核心发现</h2></div>
+      <div id="findings-list"></div>
+    </section>
+
+    <!-- 2 分析背景与目标 -->
+    <section id="sec-background" class="reveal">
+      <div class="section-head"><span class="section-index">02</span><h2 class="section-title">分析背景与目标</h2></div>
+      <div id="bg-narrative" class="narrative prose"></div>
+      <ul id="bg-objectives" class="objectives"></ul>
+    </section>
+
+    <!-- 3 数据概况 -->
+    <section id="sec-overview" class="reveal">
+      <div class="section-head"><span class="section-index">03</span><h2 class="section-title">数据概况</h2></div>
+      <div id="ov-narrative" class="narrative prose"></div>
+      <div id="ov-stats"></div>
+      <p id="ov-quality" class="quality-note"></p>
+    </section>
+
+    <!-- 4 深入分析（动态分节） -->
+    <div id="analysis-sections"></div>
+
+    <!-- 5 结论与建议 -->
+    <section id="sec-conclusions" class="reveal">
+      <div class="section-head"><span class="section-index" id="cc-no">05</span><h2 class="section-title">结论与建议</h2></div>
+      <div id="cc-narrative" class="narrative prose"></div>
+      <div id="cc-recommendations"></div>
+    </section>
+
+    <!-- 6 附录：数据处理说明（默认折叠） -->
+    <section id="sec-appendix" class="reveal">
+      <details>
+        <summary>附录：数据处理说明</summary>
+        <div>
+          <h3 class="ap-subhead">清洗与转换决策记录</h3>
+          <ol id="ap-processing" class="ap-list"></ol>
+          <h3 id="ap-methods-title" class="ap-subhead" style="display:none">方法与假设说明</h3>
+          <ol id="ap-methods" class="ap-list"></ol>
+        </div>
+      </details>
+      <p class="colophon">本报告由 data-analysis-skill 生成 · 图表基于 Apache ECharts · 需联网打开以加载图表组件</p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+window.__REPORT_DATA__ = __REPORT_DATA_JSON__;
+
+(function () {
+  const D = window.__REPORT_DATA__;
+  if (!D) { document.body.innerHTML = '<p style="padding:40px">报告数据注入失败：数据占位符未被替换。</p>'; return; }
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  // 有限 Markdown：**加粗** 与换行
+  const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+
+  /* ---------- 报头与元信息 ---------- */
+  document.title = D.meta.title || '数据分析报告';
+  $('r-title').textContent = D.meta.title || '数据分析报告';
+  $('r-subtitle').textContent = D.meta.subtitle || '';
+  $('r-date').textContent = D.meta.date || '';
+  $('r-industry').textContent = D.meta.industry_label || '';
+  $('r-audience').textContent = D.meta.audience || '';
+  ['r-date', 'r-industry', 'r-audience'].forEach(id => {
+    const el = $(id); if (!el.textContent) el.closest('li').style.display = 'none';
+  });
+
+  /* ---------- 1 核心发现 ---------- */
+  const tone = { positive: ['t-positive', '正向'], negative: ['t-negative', '风险'],
+                 warning:  ['t-warning', '关注'],  neutral:  ['t-neutral', '提示'] };
+  $('findings-list').innerHTML = (D.key_findings || []).map((f, i) => {
+    const [cls, tag] = tone[f.type] || tone.neutral;
+    return `
+    <article class="finding">
+      <span class="finding-no ${cls}">${String(i + 1).padStart(2, '0')}</span>
+      <div class="finding-body">
+        <p class="finding-head">${md(f.headline)}</p>
+        ${f.detail ? `<p class="finding-detail">${md(f.detail)}</p>` : ''}
+      </div>
+      <span class="finding-tag ${cls}">${tag}</span>
+    </article>`;
+  }).join('');
+
+  /* ---------- 2 背景与目标 ---------- */
+  $('bg-narrative').innerHTML = md(D.background?.narrative || '');
+  $('bg-objectives').innerHTML = (D.background?.objectives || []).map(o => `<li>${md(o)}</li>`).join('');
+
+  /* ---------- 3 数据概况 ---------- */
+  $('ov-narrative').innerHTML = md(D.data_overview?.narrative || '');
+  $('ov-stats').innerHTML = (D.data_overview?.stats || []).map(s => `
+    <div class="stat">
+      <p class="stat-label">${esc(s.label)}</p>
+      <p class="stat-value">${esc(s.value)}</p>
+      ${s.note ? `<p class="stat-note">${esc(s.note)}</p>` : ''}
+    </div>`).join('');
+  $('ov-quality').innerHTML = '<span class="q-label">数据质量</span>' + md(D.data_overview?.quality_summary || '—');
+
+  /* ---------- 4 深入分析 ---------- */
+  const chartJobs = [];
+  let figNo = 0, tabNo = 0;
+  const numLike = (v) => /^[\s¥$€＋+\-−]*[\d,.]+\s*[%％万亿kKmMwW]*\s*$/.test(String(v ?? '').trim());
+  $('analysis-sections').innerHTML = (D.sections || []).map((sec, si) => `
+    <section id="${esc(sec.id)}" class="reveal">
+      <div class="section-head"><span class="section-index">${String(si + 4).padStart(2, '0')}</span><h2 class="section-title">${esc(sec.title)}</h2></div>
+      ${sec.narrative ? `<div class="narrative prose">${md(sec.narrative)}</div>` : ''}
+      ${(sec.charts || []).map(ch => {
+        chartJobs.push(ch); figNo += 1;
+        return `
+        <figure class="figure" style="margin-left:0;margin-right:0">
+          <figcaption>
+            <div class="figure-mark"></div>
+            <p class="figure-title">${esc(ch.title)}</p>
+            <p class="figure-sub"><span>${esc(ch.question || '')}</span><span class="figure-no">图 ${figNo}</span></p>
+          </figcaption>
+          <div id="${esc(ch.id)}" class="chart-box" style="height:${(ch.height || 400)}px"></div>
+          <div class="figure-insight"><span class="insight-label">解读</span>${md(ch.insight || '')}</div>
+        </figure>`;
+      }).join('')}
+      ${(sec.tables || []).map(t => {
+        tabNo += 1;
+        const numCols = (t.columns || []).map((_, ci) => {
+          const vals = (t.rows || []).map(r => r[ci]).filter(v => String(v ?? '').trim() !== '');
+          return vals.length > 0 && vals.filter(numLike).length / vals.length > 0.6;
+        });
+        return `
+        <div class="table-block">
+          <div class="figure-mark"></div>
+          <p class="tbl-title">${esc(t.title)}</p>
+          <p class="tbl-sub"><span class="figure-no">表 ${tabNo}</span></p>
+          <table>
+            <thead><tr>${(t.columns || []).map((c, ci) => `<th${numCols[ci] ? ' class="num"' : ''}>${esc(c)}</th>`).join('')}</tr></thead>
+            <tbody>${(t.rows || []).map(r => `<tr>
+              ${r.map((v, ci) => `<td${numCols[ci] ? ' class="num"' : ''}>${esc(v)}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+      }).join('')}
+    </section>`).join('');
+
+  /* ---------- 5 结论与建议 ---------- */
+  $('cc-no').textContent = String((D.sections || []).length + 4).padStart(2, '0');
+  $('cc-narrative').innerHTML = md(D.conclusions?.narrative || '');
+  const prio = { '高': ['p-high', '高'], '中': ['p-mid', '中'], '低': ['p-low', '低'] };
+  $('cc-recommendations').innerHTML = (D.conclusions?.recommendations || []).map((r, i) => {
+    const [cls, label] = prio[r.priority] || ['p-low', r.priority || '建议'];
+    return `
+    <div class="rec">
+      <span class="rec-prio ${cls}">${esc(label)}</span>
+      <div><p class="rec-title"><span class="rec-no">${String(i + 1).padStart(2, '0')}</span>${md(r.title)}</p>
+        ${r.detail ? `<p class="rec-detail">${md(r.detail)}</p>` : ''}</div>
+    </div>`;
+  }).join('');
+
+  /* ---------- 6 附录 ---------- */
+  $('ap-processing').innerHTML = (D.appendix?.processing_notes || []).map(n => `<li>${md(n)}</li>`).join('');
+  const mn = D.appendix?.methods_notes || [];
+  if (mn.length) { $('ap-methods-title').style.display = ''; $('ap-methods').innerHTML = mn.map(n => `<li>${md(n)}</li>`).join(''); }
+
+  /* ---------- 目录 ---------- */
+  const tocItems = [
+    ['sec-findings', '核心发现'], ['sec-background', '分析背景与目标'], ['sec-overview', '数据概况'],
+    ...(D.sections || []).map(s => [s.id, s.title]),
+    ['sec-conclusions', '结论与建议'], ['sec-appendix', '附录：数据处理说明'],
+  ];
+  $('toc-list').innerHTML = tocItems.map(([id, label], i) =>
+    `<li><a href="#${esc(id)}" data-sec="${esc(id)}"><span class="toc-no">${String(i + 1).padStart(2, '0')}</span><span>${esc(label)}</span></a></li>`).join('');
+
+  /* ---------- 滚动显现 + 目录跟随 ---------- */
+  if (window.IntersectionObserver) {
+    const revealObs = new IntersectionObserver((es) => es.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('on'); revealObs.unobserve(e.target); }
+    }), { rootMargin: '0px 0px -8% 0px' });
+    document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+
+    const links = Array.from(document.querySelectorAll('#toc-list a'));
+    const spyObs = new IntersectionObserver((es) => {
+      const hit = es.find(e => e.isIntersecting);
+      if (!hit) return;
+      links.forEach(a => a.classList.toggle('active', a.dataset.sec === hit.target.id));
+    }, { rootMargin: '-12% 0px -62% 0px' });
+    tocItems.forEach(([id]) => { const el = document.getElementById(id); if (el) spyObs.observe(el); });
+  } else {
+    document.querySelectorAll('.reveal').forEach(el => el.classList.add('on'));
+  }
+
+  /* ---------- ECharts 渲染 ---------- */
+  function renderCharts() {
+    if (!window.echarts) { setTimeout(renderCharts, 300); return; }  // 等待备源加载
+    // economist 主题：「红印·出版」同源色板；option 自带配置优先于主题
+    const FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif';
+    const AXIS = { axisLine: { lineStyle: { color: '#121212' } }, axisTick: { lineStyle: { color: '#c9c9c9' } },
+                   axisLabel: { color: '#6b6b6b' }, splitLine: { lineStyle: { color: '#e3e3e3' } },
+                   nameTextStyle: { color: '#9a9a9a' } };
+    echarts.registerTheme('economist', {
+      color: ['#006ba6', '#3ebcd2', '#e3120b', '#f6a44c', '#76c0c1', '#963c4c', '#1d3956', '#b5b5b5'],
+      backgroundColor: 'transparent',
+      textStyle: { fontFamily: FONT, color: '#6b6b6b' },
+      categoryAxis: AXIS, valueAxis: AXIS, timeAxis: AXIS, logAxis: AXIS,
+      legend: { textStyle: { color: '#404040', fontFamily: FONT } },
+      title: { textStyle: { color: '#121212', fontFamily: FONT }, subtextStyle: { color: '#9a9a9a' } },
+      tooltip: { backgroundColor: '#ffffff', borderColor: '#dcdcdc', borderWidth: 1,
+                 textStyle: { color: '#121212', fontFamily: FONT },
+                 extraCssText: 'box-shadow:0 4px 14px rgba(0,0,0,.10)' },
+      toolbox: { iconStyle: { borderColor: '#9a9a9a' } },
+      dataZoom: { borderColor: '#c9c9c9', fillerColor: 'rgba(0,107,166,0.08)',
+                  handleStyle: { color: '#006ba6' }, textStyle: { color: '#9a9a9a' } },
+      visualMap: { textStyle: { color: '#6b6b6b' } },
+    });
+    const instances = chartJobs.map(ch => {
+      const el = document.getElementById(ch.id);
+      if (!el || !ch.option) return null;
+      const inst = echarts.init(el, 'economist');
+      inst.setOption(ch.option);
+      return inst;
+    }).filter(Boolean);
+    window.addEventListener('resize', () => instances.forEach(i => i.resize()));
+  }
+  renderCharts();
+})();
+</script>
+</body>
+</html>
