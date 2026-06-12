@@ -70,6 +70,9 @@ To upgrade later, pull the latest code and run the same command again.
 | Content creators | Account operations on Xiaohongshu (RED), Douyin, Bilibili, WeChat official accounts, etc. | Engagement rate, completion rate, net follower growth, follower conversion efficiency |
 | Corporate finance / FP&A | P&L, expenses, budget, cash flow analysis | Revenue growth, gross margin, expense ratios, budget attainment |
 | Funds | Fund product performance and operations data | NAV returns, max drawdown, subscriptions/redemptions, holder structure |
+| Real estate | Property developer sales and market data | Sales & absorption, cash collection, market volume-price trends |
+| Construction | Construction/contracting company operations | Project output & progress, labor/material/machinery costs, contract intake & collections |
+| Education & training | Training institutions, online education platforms | Enrollment & renewals, attendance & completion, channel acquisition & CAC |
 | Everything else | When none of the above fits, it falls back to a general lens | Scale, trends, composition, distributions — without force-fitting another industry's KPIs |
 
 When the task calls for specialized methods — A/B testing, time-series forecasting, causal inference, machine learning — it loads the corresponding method module on demand; you don't have to ask.
