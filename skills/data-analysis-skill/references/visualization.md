@@ -58,6 +58,23 @@ def to_native(o):
     return o
 ```
 
+## Narrative Typography (Phase 5)
+
+The template renders narrative text with two Markdown tiers (authoritative contract in the template's header comment):
+
+| Fields | Supported syntax |
+|------|------|
+| The four `narrative` fields (`background` / `data_overview` / `sections[]` / `conclusions`) | Block-level: blank line = paragraph break, `### ` subheading, `- ` unordered list, `1. ` ordered list, `**bold**` |
+| All other text fields (`headline`/`detail`/`objectives`/`insight`/`quality_summary`/`recommendations`/notes) | `**bold**` and line breaks only |
+
+Discipline — these exist so reports read like editorial writing, not slide bullets:
+
+- **Narrative first, lists second**: prose carries the argument; use a list only for 3+ parallel points. Never convert an entire narrative into bullets
+- Paragraphs of 2–4 sentences, separated by blank lines; at most one `### ` block per section narrative (chapter structure belongs in `sections[]`, not inside a narrative)
+- No Markdown tables/links/images/code — tabular data goes in the `tables` field
+- `**bold**` renders in the accent red: reserve it for key numbers and decision-bearing phrases, not whole sentences
+- Ordered items must start the line as `1. ` (Chinese `1、` also works); a 4-digit year like `2025.` is not parsed as a list
+
 ## Matplotlib / Seaborn (in-process exploration only, or when the user explicitly asks for static charts)
 
 Chinese text output requires explicit font configuration, otherwise glyphs render garbled:

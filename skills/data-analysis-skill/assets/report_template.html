@@ -8,7 +8,10 @@
     全模板仅该一处字面量）replace 为 json.dumps(report_data, ensure_ascii=False) 的结果。
   输出为单文件 HTML，依赖经 CDN 引入（固定版本），需联网打开。
 
-  数据契约 report_data（所有叙事文本支持有限 Markdown：**加粗** 与换行）：
+  数据契约 report_data（叙事文本的 Markdown 支持分两级：
+    · narrative 字段（background / data_overview / sections[] / conclusions 四处）：块级 Markdown
+      —— 空行分段、`### ` 小标题、`- ` 无序列表、`1. ` 有序列表、**加粗**；
+    · 其余叙事字段（headline/detail/objectives/insight/quality_summary/recommendations/notes 等）：仅 **加粗** 与换行）：
   {
     "meta":         {"title", "subtitle", "date", "industry_label", "audience", "lang"},
     "key_findings": [{"headline", "detail", "type": "positive|negative|warning|neutral"}],   // 3-5 条
@@ -31,8 +34,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>数据分析报告</title>
-<!-- Tailwind Play CDN（固定版本，实测 2026-06）：仅作可选工具类，主视觉由下方自定义 CSS 独立承载 -->
-<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<!-- Tailwind Play CDN + typography 插件（均锁版，实测 2026-06-12：200/543KB；plugins 不带 @版本 会 302 至 latest，禁止）：
+     typography 承载 narrative 块级排版，主视觉仍由下方自定义 CSS 独立承载 -->
+<script src="https://cdn.tailwindcss.com/3.4.16?plugins=typography@0.5.16"></script>
 <!-- ECharts 5.4.3：主源 bootcdn（国内），失败回退 unpkg（实测 2026-06 均可达）-->
 <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
 <script>window.echarts || document.write('<script src="https://unpkg.com/echarts@5.4.3/dist/echarts.min.js"><\/script>')</script>
@@ -87,7 +91,6 @@
           box-shadow: 0 1px 0 rgba(255,255,255,.7) inset,
                       0 20px 50px -22px rgba(40,35,30,.25),
                       0 2px 8px rgba(40,35,30,.06); }
-  .prose { max-width: 705px; }
 
   /* ---------- 目录（桌面旁置便签） ---------- */
   #toc-nav .toc-inner { position: sticky; top: 36px; padding-top: 102px; }
@@ -131,6 +134,30 @@
                    color: var(--ink); white-space: nowrap; }
 
   .narrative { color: var(--ink-2); }
+  /* 叙事排版：typography 插件 prose 映射「红印」。Play CDN 样式注入 head 末尾（晚于本表），
+     且插件 .prose 规则自身定义同名 --tw-prose-* 变量——故覆盖一律用 .narrative.prose（0,2,0）。 */
+  .narrative.prose {
+    max-width: 705px;            /* 压过插件 65ch */
+    font-size: inherit;          /* 屏 15px / 印 12.5px 跟随 body，压过插件 1rem */
+    line-height: inherit;        /* 1.78 / 1.6，压过插件 1.75 */
+    --tw-prose-body: var(--ink-2);
+    --tw-prose-headings: var(--ink);
+    --tw-prose-lead: var(--ink-2);
+    --tw-prose-links: var(--accent);
+    --tw-prose-bold: var(--accent);
+    --tw-prose-counters: var(--accent);
+    --tw-prose-bullets: var(--accent);
+    --tw-prose-hr: var(--line);
+    --tw-prose-quotes: var(--ink);
+    --tw-prose-quote-borders: var(--accent);
+    --tw-prose-captions: var(--muted);
+    --tw-prose-code: var(--ink);
+    --tw-prose-th-borders: var(--line-2);
+    --tw-prose-td-borders: var(--line);
+  }
+  .narrative.prose ul { list-style-type: square; }   /* 与 .objectives 方块 bullet 同语言 */
+  .narrative.prose h4 { font-weight: 800; font-size: 14px; letter-spacing: .02em;
+                        break-after: avoid; page-break-after: avoid; }
   .narrative strong, .prose strong { color: var(--accent); font-feature-settings: "tnum" 1; }
 
   /* ---------- 核心发现：头版要闻（描边胶囊语义标签，编号统一红色） ---------- */
@@ -355,8 +382,25 @@ window.__REPORT_DATA__ = __REPORT_DATA_JSON__;
   if (!D) { document.body.innerHTML = '<p style="padding:40px">报告数据注入失败：数据占位符未被替换。</p>'; return; }
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  // 有限 Markdown：**加粗** 与换行
-  const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+  // 行内有限 Markdown：**加粗**
+  const mdInline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // 短字段：加粗 + 换行（行为与原 md 完全一致）
+  const md = (s) => mdInline(s).replace(/\n/g, '<br>');
+  // narrative 专用块级 Markdown：空行分段、### 小标题、-/1. 列表（\d{1,3} 防年份误判，兼容 1、）
+  const mdBlock = (s) => {
+    const out = []; let para = [], list = null;
+    const fp = () => { if (para.length) { out.push('<p>' + para.map(mdInline).join('<br>') + '</p>'); para = []; } };
+    const fl = () => { if (list) { out.push('<' + list.t + '>' + list.items.map(i => '<li>' + mdInline(i) + '</li>').join('') + '</' + list.t + '>'); list = null; } };
+    for (const raw of String(s ?? '').split('\n')) {
+      const line = raw.trim(); let m;
+      if (!line) { fp(); fl(); }
+      else if ((m = line.match(/^###\s+(.*)/)))        { fp(); fl(); out.push('<h4>' + mdInline(m[1]) + '</h4>'); }
+      else if ((m = line.match(/^[-*]\s+(.*)/)))       { fp(); if (list && list.t !== 'ul') fl(); list = list || { t: 'ul', items: [] }; list.items.push(m[1]); }
+      else if ((m = line.match(/^\d{1,3}[.、]\s*(.*)/))) { fp(); if (list && list.t !== 'ol') fl(); list = list || { t: 'ol', items: [] }; list.items.push(m[1]); }
+      else { fl(); para.push(line); }
+    }
+    fp(); fl(); return out.join('');
+  };
 
   /* ---------- 报头与元信息 ---------- */
   document.title = D.meta.title || '数据分析报告';
@@ -386,11 +430,11 @@ window.__REPORT_DATA__ = __REPORT_DATA_JSON__;
   }).join('');
 
   /* ---------- 2 背景与目标 ---------- */
-  $('bg-narrative').innerHTML = md(D.background?.narrative || '');
+  $('bg-narrative').innerHTML = mdBlock(D.background?.narrative || '');
   $('bg-objectives').innerHTML = (D.background?.objectives || []).map(o => `<li>${md(o)}</li>`).join('');
 
   /* ---------- 3 数据概况 ---------- */
-  $('ov-narrative').innerHTML = md(D.data_overview?.narrative || '');
+  $('ov-narrative').innerHTML = mdBlock(D.data_overview?.narrative || '');
   $('ov-stats').innerHTML = (D.data_overview?.stats || []).map(s => `
     <div class="stat">
       <p class="stat-label">${esc(s.label)}</p>
@@ -406,7 +450,7 @@ window.__REPORT_DATA__ = __REPORT_DATA_JSON__;
   $('analysis-sections').innerHTML = (D.sections || []).map((sec, si) => `
     <section id="${esc(sec.id)}" class="reveal">
       <div class="section-head"><span class="section-index">${String(si + 4).padStart(2, '0')}</span><h2 class="section-title">${esc(sec.title)}</h2></div>
-      ${sec.narrative ? `<div class="narrative prose">${md(sec.narrative)}</div>` : ''}
+      ${sec.narrative ? `<div class="narrative prose">${mdBlock(sec.narrative)}</div>` : ''}
       ${(sec.charts || []).map(ch => {
         chartJobs.push(ch); figNo += 1;
         return `
@@ -443,7 +487,7 @@ window.__REPORT_DATA__ = __REPORT_DATA_JSON__;
 
   /* ---------- 5 结论与建议 ---------- */
   $('cc-no').textContent = String((D.sections || []).length + 4).padStart(2, '0');
-  $('cc-narrative').innerHTML = md(D.conclusions?.narrative || '');
+  $('cc-narrative').innerHTML = mdBlock(D.conclusions?.narrative || '');
   const prio = { '高': ['p-high', '高'], '中': ['p-mid', '中'], '低': ['p-low', '低'] };
   $('cc-recommendations').innerHTML = (D.conclusions?.recommendations || []).map((r, i) => {
     const [cls, label] = prio[r.priority] || ['p-low', r.priority || '建议'];
