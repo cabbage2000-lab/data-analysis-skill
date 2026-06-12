@@ -105,6 +105,7 @@ Once confirmation lands, pick the industry template: a matching template exists 
 | `industries/fund.md` | Confirmed fund industry (fund NAV performance, AUM & subscription/redemption, holder analysis) |
 | `industries/real-estate.md` | Confirmed real estate (project sales & absorption, cash collection, market volume-price trends) |
 | `industries/construction.md` | Confirmed construction (project output & progress, labor/material/machinery costs, contract intake & collections) |
+| `industries/education.md` | Confirmed education & training (enrollment & renewals, attendance & completion, channel acquisition) |
 | `industries/general.md` | Industry unidentified / uncovered / user rejected the guess (fallback) |
 | `references/visualization.md` | Phases 4–5 whenever charts are produced (required in Phase 5) |
 | `references/ab-testing.md` | User mentions experiments, control groups, A/B tests |
