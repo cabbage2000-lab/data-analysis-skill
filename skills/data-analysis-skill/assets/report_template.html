@@ -339,10 +339,33 @@
     .gridjs-search, .gridjs-pagination .gridjs-pages { display: none; }
     th.gridjs-th, td.gridjs-td, .gridjs-footer { background: #ffffff; }
     a { color: var(--ink); }
+    .btn-export-pdf { display: none !important; }
   }
+
+  /* ---------- 导出 PDF 按钮（固定右上角悬浮） ---------- */
+  .btn-export-pdf {
+    position: fixed; top: 16px; right: 24px; z-index: 9999;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 18px;
+    font: 700 13px/1 var(--sans); letter-spacing: .04em;
+    color: var(--ink); background: var(--paper);
+    border: 1.5px solid var(--line-2); border-radius: 2px;
+    box-shadow: 0 2px 8px rgba(40,35,30,.10);
+    cursor: pointer; transition: all .2s;
+  }
+  .btn-export-pdf:hover { color: var(--accent); border-color: var(--accent); background: #fff8f8;
+                           box-shadow: 0 2px 12px rgba(227,18,11,.12); }
+  .btn-export-pdf:active { transform: scale(.97); }
+  .btn-export-pdf svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; }
 </style>
 </head>
 <body>
+
+<!-- 导出 PDF 按钮（固定右上角，@media print 自动隐藏） -->
+<button class="btn-export-pdf" id="btn-export-pdf" title="打印 / 导出为 PDF 文件">
+  <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+  导出 PDF
+</button>
 
 <div class="fallback-wrap">
 
@@ -667,6 +690,11 @@ window.__REPORT_DATA__ = __REPORT_DATA_JSON__;
     });
   }
   renderGrids(0);
+
+  /* ---------- 导出 PDF（浏览器原生打印，100% CSS 保真） ---------- */
+  document.getElementById('btn-export-pdf').addEventListener('click', function () {
+    window.print();
+  });
 })();
 </script>
 </body>
