@@ -37,8 +37,18 @@ What gets injected into the HTML is **chart-ready data**, not raw detail:
 
 - A single series over ~1000 points: aggregate first (coarsen granularity: day → week → month) or sample, and record the aggregation granularity in the appendix "Data Processing Notes"
 - Scatter over ~2000 points: random-sample and note the sampling ratio
-- Tables hold summary rows only, never detail rows
+- Tables: detail-level rows are allowed (e.g. SKU-level, per-day records). Hard cap **500 rows per table**: beyond that, truncate to TOP-N in Python before injection (ranked by the measure under analysis) and record the truncation in appendix `processing_notes`. The template never truncates silently
 - Goal: keep the single-file HTML small and smooth to open
+
+## Table Modes (static vs interactive)
+
+The template picks the table mode automatically by row count — control it only through how many rows you inject:
+
+- **≤20 rows**: static publication-style table (the default look, consistent with the report's design system)
+- **>20 rows**: automatic interactive table (Grid.js — pagination/search/sort). Same `tables` structure; never add fields or markers to opt in/out
+- Keep `rows` as display-formatted strings (`"¥1,200,000"`, `"12.4%"`). The template parses numbers for column sorting — do not inject raw unformatted numbers just to make sorting work
+- Detail tables: cap 500 rows; truncate to TOP-N before injection and add a `processing_notes` entry (see Data Volume Control)
+- Print/PDF caveat: an interactive table prints only the currently visible page (other rows are not in the DOM). If the user explicitly asks for a print/PDF deliverable, prefer ≤20-row summary tables, or note the cutoff in the narrative
 
 ## Report Generation Flow (Phase 5)
 

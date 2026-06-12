@@ -20,11 +20,14 @@
     "sections":     [{"id","title","narrative",
                       "charts":[{"id","title","question","option":{ECharts option，纯 JSON 无函数},
                                  "insight","height"}],
-                      "tables":[{"title","columns":["..."],"rows":[["..."]]}]}],
+                      "tables":[{"title","columns":["..."],"rows":[["..."]]}]}],   // rows 为展示格式字符串（"¥1,200,000"）
     "conclusions":  {"narrative","recommendations":[{"title","detail","priority":"高|中|低"}]},
     "appendix":     {"processing_notes":["..."],"methods_notes":["..."]}
   }
   约束：option 必须是纯 JSON（formatter 等用 ECharts 字符串模板如 '{b}: {c}'，不可用函数）。
+  约束（表格）：≤20 行渲染静态出版表；>20 行自动切换 Grid.js 交互表（分页/搜索/排序，数字列按解析值排序），
+      同一 tables 结构、无需任何标记字段；单表上限 500 行，超出须在注入前截断为 TOP-N 并在
+      appendix.processing_notes 注明（模板不做静默截断）。
   视觉：「红印·出版」编辑风（经济学人式：白纸面 + 顶部红条，经济学人红 #e3120b 承担版面强调
         与负向语义、数据蓝 #006ba6 为第一系列色与正向语义，全无衬线、数字 tabular-nums），
         并向 ECharts 注册 economist 主题统一兜底色板与字体；option 自带配置仍优先于主题，
@@ -40,6 +43,13 @@
 <!-- ECharts 5.4.3：主源 bootcdn（国内），失败回退 unpkg（实测 2026-06 均可达）-->
 <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
 <script>window.echarts || document.write('<script src="https://unpkg.com/echarts@5.4.3/dist/echarts.min.js"><\/script>')</script>
+<!-- Grid.js 6.2.0（>20 行表格自动交互化）：主源 bootcdn，JS 失败回退 unpkg（实测 2026-06 均可达）；
+     主题 CSS 须先于下方自定义 <style>（覆盖块同特异度后序取胜），用 link onerror 回退备源
+     （CSS 无全局变量可同步探测，不能套用 document.write 模式） -->
+<link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/gridjs/6.2.0/theme/mermaid.min.css"
+      onerror="this.onerror=null;this.href='https://unpkg.com/gridjs@6.2.0/dist/theme/mermaid.min.css'">
+<script src="https://cdn.bootcdn.net/ajax/libs/gridjs/6.2.0/gridjs.umd.js"></script>
+<script>window.gridjs || document.write('<script src="https://unpkg.com/gridjs@6.2.0/dist/gridjs.umd.js"><\/script>')</script>
 <style>
   /* ============ 「红印·出版」设计系统（经济学人风：白纸面、红顶条、红/蓝双强调） ============ */
   :root {
@@ -233,6 +243,36 @@
   tbody td:first-child { color: var(--ink); font-weight: 600; }
   th.num, td.num { text-align: right; font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
 
+  /* ---------- Grid.js 交互表（>20 行自动启用）：mermaid 主题覆盖为「红印·出版」同观感 ----------
+     本 <style> 晚于 mermaid <link>，类选择器同特异度后序取胜；th/td 与上方静态表逐项同值。
+     全局 table { margin-top:10px } 等裸元素选择器会命中 .gridjs-table，需显式归零。 */
+  .gridjs-container { display: block; padding: 0; color: inherit; width: 100%; }
+  .gridjs-wrapper { border: none; border-radius: 0; box-shadow: none; }
+  .gridjs-table { margin-top: 0; }
+  th.gridjs-th { background: transparent; border: none; border-top: 2px solid var(--ink);
+                 border-bottom: 1px solid var(--line-2); padding: 8px 14px 8px 2px;
+                 color: var(--muted); font-size: 10.5px; font-weight: 600;
+                 letter-spacing: .14em; text-transform: uppercase; }
+  th.gridjs-th-sort { padding-right: 22px; }   /* 给排序箭头留位 */
+  td.gridjs-td { background: transparent; border: none; border-bottom: 1px solid var(--line);
+                 padding: 8px 14px 8px 2px; color: var(--ink-2); font-size: 13px; }
+  .gridjs-tr:hover td.gridjs-td { background: var(--soft); }
+  td.gridjs-td:first-child { color: var(--ink); font-weight: 600; }
+  /* 数字列：列级 attributes 只注 data-num 属性（注 class/style 会覆盖 autoWidth 列宽，禁止） */
+  th.gridjs-th[data-num] .gridjs-th-content { float: right; text-align: right; }
+  td.gridjs-td[data-num] { text-align: right; font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
+  .gridjs-head { padding: 0; margin-bottom: 8px; }
+  input.gridjs-input { border-radius: 0; border: 1px solid var(--line-2); background: var(--paper);
+                       font-family: inherit; font-size: 12.5px; padding: 7px 12px; }
+  input.gridjs-input:focus { border-color: var(--accent); box-shadow: none; outline: none; }
+  .gridjs-footer { background: transparent; border: none; border-radius: 0; box-shadow: none; padding: 10px 0 0; }
+  .gridjs-summary { color: var(--faint); font-size: 11.5px; font-feature-settings: "tnum" 1; }
+  .gridjs-pagination .gridjs-pages button { border-radius: 0; border: 1px solid var(--line-2);
+      background: transparent; color: var(--ink-2); font-size: 12px; padding: 4px 10px; }
+  .gridjs-pagination .gridjs-pages button.gridjs-currentPage {
+      background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  @media (max-width: 639px) { .gridjs-search-input { width: 100%; } }
+
   /* ---------- 结论与建议 ---------- */
   #cc-recommendations { margin-top: 18px; }
   .rec { display: flex; gap: 14px; padding: 15px 2px; border-top: 1px solid var(--line); align-items: flex-start; }
@@ -295,6 +335,9 @@
     p, li { orphans: 2; widows: 2; }
     .finding-tag, .quality-note, .p-mid, #sec-appendix details,
     .t-positive, .t-negative, .t-warning, .t-neutral { background: #ffffff; }
+    /* 交互表：搜索框/页码不上纸；summary 行保留，纸面明示「共 N 条」存在截断 */
+    .gridjs-search, .gridjs-pagination .gridjs-pages { display: none; }
+    th.gridjs-th, td.gridjs-td, .gridjs-footer { background: #ffffff; }
     a { color: var(--ink); }
   }
 </style>
@@ -447,6 +490,40 @@ window.__REPORT_DATA__ = __REPORT_DATA_JSON__;
   const chartJobs = [];
   let figNo = 0, tabNo = 0;
   const numLike = (v) => /^[\s¥$€＋+\-−]*[\d,.]+\s*[%％万亿kKmMwW]*\s*$/.test(String(v ?? '').trim());
+  // 表格双模式：≤TBL_STATIC_MAX 行直出静态出版表；超过则交 Grid.js 交互表（分页/搜索/排序）
+  const TBL_STATIC_MAX = 20;
+  const gridJobs = [];
+  // 解析展示格式字符串为可比数字："¥1,200,000"→1200000、"12.4%"→12.4、"3.2万"→32000；失败返 null
+  const parseNum = (v) => {
+    const s = String(v ?? '').trim().replace(/[¥$€,\s＋+]/g, '').replace(/％/g, '%').replace(/−/g, '-');
+    const n = parseFloat(s);
+    if (isNaN(n)) return null;
+    return n * (/亿/.test(s) ? 1e8 : /[万wW]/.test(s) ? 1e4 : /[mM]$/.test(s) ? 1e6 : /[kK]$/.test(s) ? 1e3 : 1);
+  };
+  const numCompare = (a, b) => {
+    const x = parseNum(a), y = parseNum(b);
+    if (x === null && y === null) return 0;
+    if (x === null) return 1;          // 非数值（"—"等）排后；desc 时被库取反，接受
+    if (y === null) return -1;
+    return x > y ? 1 : x < y ? -1 : 0;
+  };
+  const GRID_LANG = {
+    search: { placeholder: '搜索表格内容…' },
+    sort: { sortAsc: '升序排列', sortDesc: '降序排列' },
+    pagination: { previous: '上一页', next: '下一页',
+      navigate: (page, pages) => `第 ${page} 页，共 ${pages} 页`,
+      page: (page) => `第 ${page} 页`,
+      showing: '当前显示', to: '至', of: '条，共', results: () => '条记录' },
+    loading: '加载中…', noRecordsFound: '没有匹配的记录', error: '表格数据加载出错',
+  };
+  // 静态出版表：≤20 行的直出路径，也是 Grid.js 双源皆失败时的降级渲染（拼接与历史版本逐字一致）
+  const staticTableHtml = (t, numCols) => `
+          <table>
+            <thead><tr>${(t.columns || []).map((c, ci) => `<th${numCols[ci] ? ' class="num"' : ''}>${esc(c)}</th>`).join('')}</tr></thead>
+            <tbody>${(t.rows || []).map(r => `<tr>
+              ${r.map((v, ci) => `<td${numCols[ci] ? ' class="num"' : ''}>${esc(v)}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+          </table>`;
   $('analysis-sections').innerHTML = (D.sections || []).map((sec, si) => `
     <section id="${esc(sec.id)}" class="reveal">
       <div class="section-head"><span class="section-index">${String(si + 4).padStart(2, '0')}</span><h2 class="section-title">${esc(sec.title)}</h2></div>
@@ -470,17 +547,17 @@ window.__REPORT_DATA__ = __REPORT_DATA_JSON__;
           const vals = (t.rows || []).map(r => r[ci]).filter(v => String(v ?? '').trim() !== '');
           return vals.length > 0 && vals.filter(numLike).length / vals.length > 0.6;
         });
-        return `
+        const head = `
         <div class="table-block">
           <div class="figure-mark"></div>
           <p class="tbl-title">${esc(t.title)}</p>
-          <p class="tbl-sub"><span class="figure-no">表 ${tabNo}</span></p>
-          <table>
-            <thead><tr>${(t.columns || []).map((c, ci) => `<th${numCols[ci] ? ' class="num"' : ''}>${esc(c)}</th>`).join('')}</tr></thead>
-            <tbody>${(t.rows || []).map(r => `<tr>
-              ${r.map((v, ci) => `<td${numCols[ci] ? ' class="num"' : ''}>${esc(v)}</td>`).join('')}</tr>`).join('')}
-            </tbody>
-          </table>
+          <p class="tbl-sub"><span class="figure-no">表 ${tabNo}</span></p>`;
+        if ((t.rows || []).length <= TBL_STATIC_MAX) return `${head}${staticTableHtml(t, numCols)}
+        </div>`;
+        const gid = `tbl-grid-${tabNo}`;        // >20 行：先出空容器，交 renderGrids 渲染
+        gridJobs.push({ gid, t, numCols });
+        return `${head}
+          <div id="${gid}"></div>
         </div>`;
       }).join('')}
     </section>`).join('');
@@ -564,6 +641,32 @@ window.__REPORT_DATA__ = __REPORT_DATA_JSON__;
     window.addEventListener('resize', () => instances.forEach(i => i.resize()));
   }
   renderCharts();
+
+  /* ---------- Grid.js 渲染（>20 行交互表） ---------- */
+  function renderGrids(tries) {
+    if (!gridJobs.length) return;
+    if (!window.gridjs) {
+      if (tries > 20) {   // ~6 秒双源皆失败：降级为静态全量表，数据不丢
+        gridJobs.forEach(j => { document.getElementById(j.gid).outerHTML = staticTableHtml(j.t, j.numCols); });
+        return;
+      }
+      setTimeout(() => renderGrids(tries + 1), 300); return;
+    }
+    gridJobs.forEach(j => {
+      new gridjs.Grid({
+        // 数字列：解析值排序 + data-num 对齐钩子；attributes 禁注 class/style（会覆盖 autoWidth 列宽）
+        columns: (j.t.columns || []).map((c, ci) => (j.numCols[ci]
+          ? { name: c, sort: { compare: numCompare }, attributes: { 'data-num': '' } }
+          : { name: c })),
+        data: j.t.rows || [],
+        sort: true,
+        search: true,
+        pagination: { limit: 15, summary: true },   // 阈值 21 行起步，恒有 ≥2 页，分页不空转
+        language: GRID_LANG,
+      }).render(document.getElementById(j.gid));
+    });
+  }
+  renderGrids(0);
 })();
 </script>
 </body>
