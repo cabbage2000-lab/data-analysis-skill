@@ -16,7 +16,7 @@ One analysis = five-phase workflow (the main line)
              → data JSON injected into assets/report_template.html → single-file HTML report
 ```
 
-Supported inputs: CSV, Excel (.xlsx/.xls), JSON, TSV. Analysis runs on Python (pandas etc.; if a dependency is missing, try pip install first, and fall back per the degradation table on failure).
+Supported inputs: CSV, Excel (.xlsx/.xls), JSON, TSV. A single input may carry **multiple datasets** — an Excel file with several sheets, two or more files handed over at once, or a JSON whose top level is a dict with multiple array keys; handle these via the Phase 1 multi-source intake (see `references/data-sources.md`). Analysis runs on Python (pandas etc.; if a dependency is missing, try pip install first, and fall back per the degradation table on failure).
 
 ## First: Task Triage
 
@@ -35,12 +35,14 @@ At kickoff, immediately use the task-list tool (TodoWrite in Claude Code, update
 
 1. Read the data and report a profile: row/column counts, field types, missingness, time range, distributions of key unique values
 2. **Industry identification**: infer the industry from field names, data characteristics, and the user's description, and self-assess confidence
-3. **User confirmation (mandatory gate)**: ask via structured multiple-choice questions (use AskUserQuestion in Claude Code; if the environment lacks that tool, ask as numbered multiple-choice questions in plain text and **wait for the user's reply before continuing**). Bundle into the first round:
+3. **Multi-source intake (when the input carries >1 dataset)**: an Excel file with several sheets, two or more files handed over at once, or a JSON whose top level is a dict with multiple array keys each count as multiple datasets. **Enumerate every source** (all sheet names / all files / all top-level keys), surface the full list to the user, and load `references/data-sources.md` for the read patterns and relation matrix. **Never silently read only the first sheet / the named file / collapse JSON keys** — that produces a report the user cannot tell is incomplete
+4. **User confirmation (mandatory gate)**: ask via structured multiple-choice questions (use AskUserQuestion in Claude Code; if the environment lacks that tool, ask as numbered multiple-choice questions in plain text and **wait for the user's reply before continuing**). Bundle into the first round:
    - Industry confirmation (high confidence → a single confirm option; low confidence or anonymized fields → offer 3–4 industry options, **never guess on your own**)
    - Analysis goal (when the user hasn't made clear what they want to see)
    - Report audience (executives = conclusion-led, light on jargon / analysts = keep the technical detail)
    - Data-definition ambiguities (when field meanings, units, or reporting periods are unclear)
-4. Question budget: at most 3 rounds, at most 3 multiple-choice questions per round; aim to fit all questions for the whole workflow into a single round in this phase
+   - **Multi-source relation strategy** (when step 3 applies): fusion (join/concat into one table) vs per-source independent analysis, plus the join keys
+5. Question budget: at most 3 rounds, at most 3 multiple-choice questions per round; aim to fit all questions for the whole workflow into a single round in this phase
 
 **When you may skip the questions and go straight to Phase 2**: industry, analysis goal, and audience can all be read directly from the user's input (e.g. "I'm the founder, this is 36 months of operating data for our SaaS — look at growth and retention"). As long as the industry has not been confirmed by the user, you must ask — **data that looks like retail ≠ the user confirming a retail reading**.
 
@@ -93,6 +95,7 @@ Once confirmation lands, pick the industry template: a matching template exists 
 2. Phrase correlation findings cautiously and proactively name confounders visible in the data; without causal-method validation, never use "boosted/caused/drove" language (see the phrasing table in `references/causal-inference.md`)
 3. When the sample is too small, state the statistical-power limitation explicitly — **do not force a verdict because the user is pressing ("the boss needs the answer today")**
 4. **Industry-benchmark discipline**: benchmark comparisons appear in exactly two cases — (a) the user supplied benchmark data; (b) the user **explicitly authorized** web search and results are cited with sources. With neither: do internal comparisons only, and note in the reply "for industry benchmarking, please provide benchmark data or authorize me to search the web (results would be directional reference only)". **Never quote industry averages from memory; never search the web without authorization** — in baseline tests the model searched and cited external data on its own; even with sources attributed, this violates the authorization requirement: whether to search, and which sources to lean on, is the user's call
+5. **No silent multi-source loss**: when the input carries multiple datasets (multi-sheet Excel / multiple files / multi-key JSON), enumerate every source, surface the full list to the user, and confirm the relation strategy — **never silently read only the first sheet / the named file / collapse JSON keys** (see `references/data-sources.md`). This extends the template's "no silent truncation" rule from the output layer to the input layer
 
 ## On-Demand Loading
 
@@ -107,6 +110,7 @@ Once confirmation lands, pick the industry template: a matching template exists 
 | `industries/construction.md` | Confirmed construction (project output & progress, labor/material/machinery costs, contract intake & collections) |
 | `industries/education.md` | Confirmed education & training (enrollment & renewals, attendance & completion, channel acquisition) |
 | `industries/general.md` | Industry unidentified / uncovered / user rejected the guess (fallback) |
+| `references/data-sources.md` | The input carries multiple datasets — multi-sheet Excel, multiple files, or multi-key JSON |
 | `references/visualization.md` | Phases 4–5 whenever charts are produced (required in Phase 5) |
 | `references/ab-testing.md` | User mentions experiments, control groups, A/B tests |
 | `references/causal-inference.md` | User asks "did X cause Y" or wants causal conclusions |
@@ -131,6 +135,8 @@ Industry templates are a thin layer: they change analysis focus and narrative st
 | No usable industry benchmark | Internal comparisons only; never fabricate external benchmarks |
 | Chart data volume too large | Aggregate/sample before injecting into HTML; note the granularity in the appendix (rules in visualization.md) |
 | Python dependency missing | Notify and attempt pip install; on failure degrade (without statsmodels do trend description only; without scikit-learn skip modeling and say so) |
+| Multi-source relation key missing / cannot fuse | Analyze each source independently; state this and explain why fusion isn't possible |
+| Multi-source schemas/structures incompatible | Surface the conflict to the user; degrade to single-source or request clarification |
 
 ## Red Flags — stop the moment you catch these thoughts
 
@@ -142,6 +148,7 @@ Industry templates are a thin layer: they change analysis focus and narrative st
 - "With correlation this strong, 'boosted' isn't an overreach" → check the phrasing table
 - "I'd structure the report better myself" → use the template's six sections
 - "matplotlib charts embedded in HTML are just as good" → use ECharts + the template
+- "The first sheet is enough, let me just read it" / "I'll process the file the user named" → multi-source silent-loss red line: enumerate every source, surface the list, confirm strategy (Phase 1 step 3 + `references/data-sources.md`)
 
 ## Pre-Completion Checklist
 
@@ -154,3 +161,4 @@ Industry templates are a thin layer: they change analysis focus and narrative st
 - [ ] Appendix contains complete "Data Processing Notes"
 - [ ] Single-file HTML; ECharts loaded from a pinned-version CDN; interactive when opened with network access
 - [ ] Report language matches the user's language; narrative style matches the audience
+- [ ] If the input had multiple datasets (sheets/files/JSON keys), all sources were enumerated and the relation strategy confirmed or explained — none silently dropped

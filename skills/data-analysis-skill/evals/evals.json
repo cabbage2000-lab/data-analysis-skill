@@ -100,6 +100,76 @@
         "产出单个 HTML 报告文件，六段式结构、开篇含 3-5 条核心发现（结论先行）",
         "叙事使用企业财务语言（科目、达成率、偏差、管控），面向管理层结论导向"
       ]
+    },
+    {
+      "id": 8,
+      "name": "excel-multi-sheet",
+      "maps_to": "需求§13-T8：多 sheet 识别与融合分析（反静默丢失）",
+      "prompt": "帮我分析一下这份数据：/Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/excel_multi_sheet.xlsx",
+      "expected_output": "识别 Excel 含多个 sheet（orders/customers/products），枚举全部 sheet 并向用户说明；不静默只读第一个 sheet；确认关联策略（融合 join 或分源）后完成六段式 HTML 报告",
+      "files": ["excel_multi_sheet.xlsx"],
+      "assertions": [
+        "向用户列出 Excel 中全部 sheet（orders/customers/products 三表），未只读取第一个 sheet",
+        "在分析前向用户确认多源关联策略（融合 join 或分源独立）",
+        "采用融合模式时正确按 customer_id/product_id 关联；processing_notes 记录关联键",
+        "产出单个 HTML 报告文件，六段式结构、开篇含核心发现"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "multi-csv-relational",
+      "maps_to": "需求§13-T9：多文件识别与 join 分析（反静默丢失）",
+      "prompt": "这是我们最近一年的交易相关数据，分别放在三个文件里，帮我关联起来整体分析一下：/Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/linked_orders.csv /Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/linked_customers.csv /Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/linked_products.csv",
+      "expected_output": "识别三个 CSV 文件为多源输入；列出全部文件；确认关联键（customer_id/product_id）后 join 融合分析；不静默只处理被点名的文件；六段式 HTML 报告",
+      "files": ["linked_orders.csv", "linked_customers.csv", "linked_products.csv"],
+      "assertions": [
+        "识别并说明三个 CSV 文件均为分析对象，未只处理其中一个",
+        "在分析前确认关联键（customer_id、product_id）",
+        "正确 join 融合三表后分析；processing_notes 记录关联方式",
+        "产出单个 HTML 报告文件，六段式结构、开篇含核心发现"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "json-multi-key",
+      "maps_to": "需求§13-T10：JSON 多结构识别（反静默丢失）",
+      "prompt": "帮我分析一下这份数据：/Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/multi_key.json",
+      "expected_output": "识别 JSON 顶层为含多个数组键的 dict（orders/customers/products），等价多 sheet；不静默合并或丢键；确认策略后分析；六段式 HTML 报告",
+      "files": ["multi_key.json"],
+      "assertions": [
+        "识别 JSON 顶层 dict 含 orders/customers/products 三个键，说明其等价多 sheet 结构",
+        "未将多键 JSON 静默合并成单表或只取一个键",
+        "在分析前向用户确认关联/融合策略",
+        "产出单个 HTML 报告文件，六段式结构、开篇含核心发现"
+      ]
+    },
+    {
+      "id": 11,
+      "name": "json-single-table",
+      "maps_to": "需求§13-T11：JSON 单表基础覆盖（消除纸面支持）",
+      "prompt": "这是我们各区域近两年的月度销售汇总：/Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/simple.json。帮我看看整体趋势和区域差异，最后给我一份 HTML 报告。",
+      "expected_output": "正确读取 JSON 记录数组（72 条记录）为单表；完成标准 EDA 与六段式 HTML 报告；证明 JSON 输入路径可用（此前 test-data 0 个 JSON）",
+      "files": ["simple.json"],
+      "assertions": [
+        "正确读取 JSON 记录数组为 DataFrame（72 条记录），无格式解析错误",
+        "产出单个 HTML 报告文件，六段式结构、开篇含 3-5 条核心发现",
+        "HTML 中 ECharts 依赖通过带固定版本号的 CDN URL 引入",
+        "每张图表配有解读文字"
+      ]
+    },
+    {
+      "id": 12,
+      "name": "tsv-single-table",
+      "maps_to": "需求§13-T12：TSV 单表基础覆盖（消除纸面支持）",
+      "prompt": "帮我分析一下这份数据：/Users/blingabc/PycharmProjects/data-analysis-skill/skills/data-analysis-workspace/test-data/sample.tsv。想看看各门店和品类的销售表现，最后给我一份 HTML 报告。",
+      "expected_output": "正确读取 TSV（tab 分隔，300 行）为单表；完成标准 EDA 与六段式 HTML 报告；证明 TSV 输入路径可用（此前 test-data 0 个 TSV）",
+      "files": ["sample.tsv"],
+      "assertions": [
+        "正确读取 TSV 为 DataFrame（按 tab 分隔，300 行），列未错乱成一列",
+        "产出单个 HTML 报告文件，六段式结构、开篇含 3-5 条核心发现",
+        "HTML 中 ECharts 依赖通过带固定版本号的 CDN URL 引入",
+        "每张图表配有解读文字"
+      ]
     }
   ]
 }

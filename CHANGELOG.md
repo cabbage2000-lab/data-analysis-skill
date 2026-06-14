@@ -20,6 +20,15 @@ Version numbers align with the requirements document (`requirements/data-analysi
 
 ---
 
+## v0.16 — 2026-06-14
+
+- Multi-source data intake: unified sub-flow for Excel multi-sheet / multiple files / JSON multi-key inputs — enumerate all sources, surface to user, confirm relation strategy before analysis
+- Anti-silent-loss red line promoted to core layer (SKILL.md Statistical Discipline #5): never silently read only the first sheet / the named file / collapse JSON keys — extends the template's "no silent truncation" rule to the input layer
+- New method module `references/data-sources.md` (read patterns + relation matrix + report organization), registered in On-Demand Loading table
+- JSON/TSV basic coverage: eliminated "paper support" — test-data now includes JSON and TSV files; evals T11/T12 verify single-table read paths
+- 5 new eval scenarios T8–T12 (Excel multi-sheet / multi-CSV relational / JSON multi-key / JSON single-table / TSV single-table); generate_test_data.py extended with 5 generator functions (seed 42 reproducible)
+- Minimal contract impact: `report_data` fields unchanged — fusion mode carried by `data_overview.narrative` + `appendix.processing_notes`, per-source mode by `sections`; template JS and validate_template.py 25 assertions untouched (all green)
+
 ## v0.15 — 2026-06-12
 
 - Table dual-mode: static publish table ≤20 rows, auto Grid.js interactive table >20 rows with pagination / search / numeric sort (Grid.js 6.2.0 dual-source CDN lock, bootcdn primary + unpkg fallback)

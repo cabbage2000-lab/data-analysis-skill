@@ -24,6 +24,11 @@
     "conclusions":  {"narrative","recommendations":[{"title","detail","priority":"高|中|低"}]},
     "appendix":     {"processing_notes":["..."],"methods_notes":["..."]}
   }
+  多数据集承载（契约字段不变，靠内容承载，见 references/data-sources.md）：
+    · 融合模式（多源 join/concat 成一张表，最常见）—— data_overview.narrative 说明来源与关联键
+      （如「本报告基于 N 个数据源：订单(800行)+客户(120行)+商品(40行)，按 customer_id/product_id 关联」），
+      appendix.processing_notes 记录关联键与丢失行数；其余按单数据集流程走。
+    · 分源模式（各源独立分析）—— sections 天然承载，每个 section 讲一个源（title 标注源名）。
   约束：option 必须是纯 JSON（formatter 等用 ECharts 字符串模板如 '{b}: {c}'，不可用函数）。
   约束（表格）：≤20 行渲染静态出版表；>20 行自动切换 Grid.js 交互表（分页/搜索/排序，数字列按解析值排序），
       同一 tables 结构、无需任何标记字段；单表上限 500 行，超出须在注入前截断为 TOP-N 并在
